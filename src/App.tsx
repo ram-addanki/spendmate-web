@@ -95,10 +95,10 @@ function endOfMonthISO(d = new Date()) {
 }
 
 function toCSV(rows: (string | number)[][]) {
-    return rows
+  return rows
     .map(r => r.map(v => `"${String(v).replaceAll('"', '""')}"`).join(","))
-    .join("\n");
-
+    .join("
+");
 }
 
 function clampDay(y: number, m: number, d: number) {
@@ -336,6 +336,7 @@ export default function App() {
 
         {/* NEW: Loans & Credit Cards */}
         <section className="mt-6 grid grid-cols-1 gap-4">
+          {/* Loans */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <Landmark className="w-5 h-5"/>
@@ -343,11 +344,21 @@ export default function App() {
             </div>
             <LoanForm onAdd={(loan) => setLoans(prev => [{...loan, id: uid()}, ...prev])} />
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              {loans.map(l => <LoanCard key={l.id} loan={l} currency={currency} onPay={(amt, date, note) => payLoan(l.id, amt, date, note)} onDelete={() => setLoans(prev => prev.filter(x => x.id !== l.id))} onEdit={(patch) => setLoans(prev => prev.map(x => x.id === l.id ? { ...x, ...patch } : x))} />)}
+              {loans.map(l => (
+                <LoanCard
+                  key={l.id}
+                  loan={l}
+                  currency={currency}
+                  onPay={(amt, date, note) => payLoan(l.id, amt, date, note)}
+                  onDelete={() => setLoans(prev => prev.filter(x => x.id !== l.id))}
+                  onEdit={(patch) => setLoans(prev => prev.map(x => x.id === l.id ? { ...x, ...patch } : x))}
+                />
+              ))}
               {loans.length === 0 && <div className="text-slate-400 text-sm">No loans yet. Add your first loan above.</div>}
             </div>
           </div>
 
+          {/* Cards */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <CreditCard className="w-5 h-5"/>
@@ -355,7 +366,16 @@ export default function App() {
             </div>
             <CardForm onAdd={(card) => setCards(prev => [{...card, id: uid()}, ...prev])} />
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              {cards.map(c => <CardBox key={c.id} card={c} currency={currency} onPay={(amt, date, note) => payCard(c.id, amt, date, note)} onDelete={() => setCards(prev => prev.filter(x => x.id !== c.id))} onEdit={(patch) => setCards(prev => prev.map(x => x.id === c.id ? { ...x, ...patch } : x))} />)}
+              {cards.map(c => (
+                <CardBox
+                  key={c.id}
+                  card={c}
+                  currency={currency}
+                  onPay={(amt, date, note) => payCard(c.id, amt, date, note)}
+                  onDelete={() => setCards(prev => prev.filter(x => x.id !== c.id))}
+                  onEdit={(patch) => setCards(prev => prev.map(x => x.id === c.id ? { ...x, ...patch } : x))}
+                />
+              ))}
               {cards.length === 0 && <div className="text-slate-400 text-sm">No credit cards yet. Add one above.</div>}
             </div>
           </div>
@@ -465,12 +485,24 @@ function TxnForm({ categories, onSubmit, onCancel, initial, currency }:{
 
   return (
     <form onSubmit={submit} className="grid grid-cols-2 md:grid-cols-5 gap-2">
-      <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <select value={category} onChange={e=>setCategory(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
-        {categories.map(c => <option key={c} value={c}>{c}</option>)}
-      </select>
-      <input inputMode="decimal" placeholder={`Amount (${currency})`} value={amount} onChange={e=>setAmount(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <input placeholder="Note (optional)" value={note} onChange={e=>setNote(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 md:col-span-2"/>
+      <div>
+        <label className="text-xs text-slate-400">Date</label>
+        <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Category</label>
+        <select value={category} onChange={e=>setCategory(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
+          {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Amount ({currency})</label>
+        <input type="number" min={0} step="0.01" inputMode="decimal" placeholder={`Amount (${currency})`} value={amount} onChange={e=>setAmount(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div className="md:col-span-2">
+        <label className="text-xs text-slate-400">Note (optional)</label>
+        <input placeholder="Note (optional)" value={note} onChange={e=>setNote(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
       <div className="flex gap-2 col-span-2 md:col-span-1">
         <button className="w-full inline-flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 rounded-xl px-3 py-2"><PlusCircle className="w-4 h-4"/> {initial? "Update" : "Add"}</button>
         {initial && <button type="button" onClick={onCancel} className="w-full inline-flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 rounded-xl px-3 py-2">Cancel</button>}
@@ -512,35 +544,56 @@ function LoanForm({ onAdd }:{ onAdd: (l: Omit<LoanAccount, 'id'>) => void }){
   const [name, setName] = useState("");
   const [principal, setPrincipal] = useState("");
   const [balance, setBalance] = useState("");
-  const [apr, setApr] = useState("");
+  const [apr, setApr] = useState("0");
   const [dueDay, setDueDay] = useState("1");
 
   function submit(e: React.FormEvent){
     e.preventDefault();
-    const p = Number(principal)||0; const b = Number(balance||principal)||0; const a = Number(apr)||0; const d = Math.max(1, Math.min(31, Number(dueDay)||1));
-    if(!name || b<=0) return alert("Please enter a name and a positive balance.");
-    onAdd({ name, principal: p>0?p:b, balance: b, apr: a, dueDay: d });
-    setName(""); setPrincipal(""); setBalance(""); setApr(""); setDueDay("1");
+    const nm = name.trim();
+    const p = Math.max(0, Number(principal)||0);
+    const b = Math.max(0, Number(balance||principal)||0);
+    const a = Math.max(0, Number(apr)||0);
+    const d = Math.max(1, Math.min(31, Number(dueDay)||1));
+    if(!nm) return alert("Please enter loan name");
+    if(b<=0) return alert("Enter a positive balance");
+    onAdd({ name: nm, principal: p>0?p:b, balance: b, apr: a, dueDay: d });
+    setName(""); setPrincipal(""); setBalance(""); setApr("0"); setDueDay("1");
   }
 
   return (
-    <form onSubmit={submit} className="grid grid-cols-2 md:grid-cols-6 gap-2">
-      <input placeholder="Loan name" value={name} onChange={e=>setName(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 md:col-span-2"/>
-      <input type="number" inputMode="decimal" placeholder="Principal" value={principal} onChange={e=>setPrincipal(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <input type="number" inputMode="decimal" placeholder="Current balance" value={balance} onChange={e=>setBalance(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <input type="number" inputMode="decimal" placeholder="APR %" value={apr} onChange={e=>setApr(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <input type="number" placeholder="Due day" value={dueDay} onChange={e=>setDueDay(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <button className="bg-sky-600 hover:bg-sky-500 rounded-xl px-3 py-2 inline-flex items-center justify-center gap-2"><PlusCircle className="w-4 h-4"/> Add Loan</button>
+    <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-6 gap-2">
+      <div className="md:col-span-2">
+        <label className="text-xs text-slate-400">Loan name</label>
+        <input placeholder="e.g., Car Loan" value={name} onChange={e=>setName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Principal</label>
+        <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0.00" value={principal} onChange={e=>setPrincipal(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Current balance</label>
+        <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0.00" value={balance} onChange={e=>setBalance(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">APR %</label>
+        <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0" value={apr} onChange={e=>setApr(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Due day</label>
+        <input type="number" min={1} max={31} placeholder="1-31" value={dueDay} onChange={e=>setDueDay(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div className="md:self-end">
+        <button className="w-full bg-sky-600 hover:bg-sky-500 rounded-xl px-3 py-2 inline-flex items-center justify-center gap-2"><PlusCircle className="w-4 h-4"/> Add Loan</button>
+      </div>
     </form>
   );
 }
 
-function LoanCard({ loan, currency, onPay, onDelete, onEdit }:{
+function LoanCard({ loan, currency, onPay, onDelete }:{
   loan: LoanAccount;
   currency: string;
   onPay: (amount: number, date: string, note?: string) => void;
   onDelete: () => void;
-  onEdit: (patch: Partial<LoanAccount>) => void;
 }){
   const [amt, setAmt] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -554,22 +607,21 @@ function LoanCard({ loan, currency, onPay, onDelete, onEdit }:{
     <div className={`p-4 border rounded-2xl ${dueSoon? 'border-amber-500/60 bg-amber-500/5' : 'border-slate-800 bg-slate-950'}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="font-semibold flex items-center gap-2"><Landmark className="w-4 h-4"/>{loan.name}</div>
-          <div className="text-xs text-slate-400">Balance: {formatCurrency(loan.balance, currency)} • APR {loan.apr || 0}%</div>
+          <div className="font-semibold flex items-center gap-2"><Landmark className="w-4 h-4"/>{loan.name}
+            <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${dueSoon? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-300'}`}>Due {nd.toISOString().slice(0,10)} ({daysLeft}d)</span>
+          </div>
+          <div className="text-xs text-slate-400 mt-1">Balance: {formatCurrency(loan.balance, currency)} • APR {loan.apr || 0}%</div>
           {loan.principal > 0 && <div className="text-xs text-slate-500">Original: {formatCurrency(loan.principal, currency)}</div>}
           {monthlyInterest>0 && <div className="text-xs text-slate-400">Est. monthly interest: ~{formatCurrency(monthlyInterest, currency)}</div>}
-          <div className={`text-xs mt-1 flex items-center gap-1 ${dueSoon ? 'text-amber-300' : 'text-slate-400'}`}>
-            <AlertCircle className="w-3 h-3"/> Next due: {nd.toISOString().slice(0,10)} ({daysLeft} days)
-          </div>
         </div>
         <div className="text-right">
           <button onClick={onDelete} className="text-rose-300 hover:text-rose-200 text-xs">Delete</button>
         </div>
       </div>
       <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
-        <input inputMode="decimal" placeholder="Payment amount" value={amt} onChange={e=>setAmt(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2"/>
+        <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="Payment amount" value={amt} onChange={e=>setAmt(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2"/>
         <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2"/>
-        <input placeholder="Note (optional)" value={note} onChange={e=>setNote(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 md:col-span-2"/>
+        <input placeholder="Note (optional)" value={note} onChange={e=>setNote(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 md:col-span-1"/>
         <button onClick={()=>{ const a=Number(amt); if(!a||a<=0) return alert('Enter amount'); onPay(a, date, note); setAmt(''); setNote(''); }} className="bg-emerald-600 hover:bg-emerald-500 rounded-xl px-3 py-2">Make Payment</button>
       </div>
     </div>
@@ -581,7 +633,7 @@ function CardForm({ onAdd }:{ onAdd: (c: Omit<CreditCardAccount, 'id'>) => void 
   const [name, setName] = useState("");
   const [limit, setLimit] = useState("");
   const [balance, setBalance] = useState("");
-  const [apr, setApr] = useState("");
+  const [apr, setApr] = useState("0");
   const [stmtDay, setStmtDay] = useState("1");
   const [dueDay, setDueDay] = useState("21");
   const [minPct, setMinPct] = useState("3");
@@ -589,32 +641,59 @@ function CardForm({ onAdd }:{ onAdd: (c: Omit<CreditCardAccount, 'id'>) => void 
   function submit(e: React.FormEvent){
     e.preventDefault();
     const nm = name.trim();
-    const lim = Number(limit)||0; const bal = Number(balance||0); const a = Number(apr)||0; const sd = Math.max(1, Math.min(31, Number(stmtDay)||1)); const dd = Math.max(1, Math.min(31, Number(dueDay)||21)); const mp = Math.max(0, Number(minPct)||3)/100;
+    const lim = Math.max(0, Number(limit)||0);
+    const bal = Math.max(0, Number(balance)||0);
+    const a = Math.max(0, Number(apr)||0);
+    const sd = Math.max(1, Math.min(31, Number(stmtDay)||1));
+    const dd = Math.max(1, Math.min(31, Number(dueDay)||21));
+    const mp = Math.max(0, Number(minPct)||3)/100;
     if(!nm) return alert("Enter card name");
     onAdd({ name: nm, limit: lim, balance: bal, apr: a, stmtDay: sd, dueDay: dd, minPct: mp });
-    setName(""); setLimit(""); setBalance(""); setApr(""); setStmtDay("1"); setDueDay("21"); setMinPct("3");
+    setName(""); setLimit(""); setBalance(""); setApr("0"); setStmtDay("1"); setDueDay("21"); setMinPct("3");
   }
 
   return (
-    <form onSubmit={submit} className="grid grid-cols-2 md:grid-cols-7 gap-2">
-      <input placeholder="Card name" value={name} onChange={e=>setName(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 md:col-span-2"/>
-      <input type="number" inputMode="decimal" placeholder="Limit" value={limit} onChange={e=>setLimit(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <input type="number" inputMode="decimal" placeholder="Balance" value={balance} onChange={e=>setBalance(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <input type="number" inputMode="decimal" placeholder="APR %" value={apr} onChange={e=>setApr(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <input type="number" placeholder="Stmt day" value={stmtDay} onChange={e=>setStmtDay(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <input type="number" placeholder="Due day" value={dueDay} onChange={e=>setDueDay(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <input type="number" step="0.1" placeholder="Min %" value={minPct} onChange={e=>setMinPct(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
-      <button className="bg-sky-600 hover:bg-sky-500 rounded-xl px-3 py-2 inline-flex items-center justify-center gap-2"><PlusCircle className="w-4 h-4"/> Add Card</button>
+    <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-7 gap-2">
+      <div className="md:col-span-2">
+        <label className="text-xs text-slate-400">Card name</label>
+        <input placeholder="e.g., HDFC Millennia" value={name} onChange={e=>setName(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Limit</label>
+        <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0.00" value={limit} onChange={e=>setLimit(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Balance</label>
+        <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0.00" value={balance} onChange={e=>setBalance(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">APR %</label>
+        <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0" value={apr} onChange={e=>setApr(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Stmt day</label>
+        <input type="number" min={1} max={31} placeholder="1-31" value={stmtDay} onChange={e=>setStmtDay(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Due day</label>
+        <input type="number" min={1} max={31} placeholder="1-31" value={dueDay} onChange={e=>setDueDay(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Min %</label>
+        <input type="number" min={0} step="0.1" placeholder="3" value={minPct} onChange={e=>setMinPct(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div className="md:self-end">
+        <button className="w-full bg-sky-600 hover:bg-sky-500 rounded-xl px-3 py-2 inline-flex items-center justify-center gap-2"><PlusCircle className="w-4 h-4"/> Add Card</button>
+      </div>
     </form>
   );
 }
 
-function CardBox({ card, currency, onPay, onDelete, onEdit }:{
+function CardBox({ card, currency, onPay, onDelete }:{
   card: CreditCardAccount;
   currency: string;
   onPay: (amount: number, date: string, note?: string) => void;
   onDelete: () => void;
-  onEdit: (patch: Partial<CreditCardAccount>) => void;
 }){
   const [amt, setAmt] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
@@ -630,12 +709,11 @@ function CardBox({ card, currency, onPay, onDelete, onEdit }:{
     <div className={`p-4 border rounded-2xl ${dueSoon? 'border-amber-500/60 bg-amber-500/5' : 'border-slate-800 bg-slate-950'}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="font-semibold flex items-center gap-2"><CreditCard className="w-4 h-4"/>{card.name}</div>
-          <div className="text-xs text-slate-400">Balance: {formatCurrency(card.balance, currency)} • Limit {formatCurrency(card.limit, currency)} • Util {util}%</div>
-          <div className="text-xs text-slate-400">APR {card.apr || 0}% • Min due ~{formatCurrency(minDue, currency)}</div>
-          <div className={`text-xs mt-1 flex items-center gap-1 ${dueSoon ? 'text-amber-300' : 'text-slate-400'}`}>
-            <AlertCircle className="w-3 h-3"/> Next due: {due.toISOString().slice(0,10)} ({daysLeft} days)
+          <div className="font-semibold flex items-center gap-2"><CreditCard className="w-4 h-4"/>{card.name}
+            <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${dueSoon? 'bg-amber-500/20 text-amber-300' : 'bg-slate-800 text-slate-300'}`}>Due {due.toISOString().slice(0,10)} ({daysLeft}d)</span>
           </div>
+          <div className="text-xs text-slate-400 mt-1">Balance: {formatCurrency(card.balance, currency)} • Limit {formatCurrency(card.limit, currency)} • Util {util}%</div>
+          <div className="text-xs text-slate-400">APR {card.apr || 0}% • Min due ~{formatCurrency(minDue, currency)}</div>
           {riskyUtil && <div className="text-xs text-rose-300 mt-1">High utilization: consider extra payment</div>}
         </div>
         <div className="text-right">
@@ -643,9 +721,9 @@ function CardBox({ card, currency, onPay, onDelete, onEdit }:{
         </div>
       </div>
       <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-2">
-        <input inputMode="decimal" placeholder="Payment amount" value={amt} onChange={e=>setAmt(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2"/>
+        <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="Payment amount" value={amt} onChange={e=>setAmt(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2"/>
         <input type="date" value={date} onChange={e=>setDate(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2"/>
-        <input placeholder="Note (optional)" value={note} onChange={e=>setNote(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 md:col-span-2"/>
+        <input placeholder="Note (optional)" value={note} onChange={e=>setNote(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 md:col-span-1"/>
         <button onClick={()=>{ const a=Number(amt); if(!a||a<=0) return alert('Enter amount'); onPay(a, date, note); setAmt(''); setNote(''); }} className="bg-emerald-600 hover:bg-emerald-500 rounded-xl px-3 py-2">Make Payment</button>
       </div>
     </div>
