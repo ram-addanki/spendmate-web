@@ -95,14 +95,11 @@ function endOfMonthISO(d = new Date()) {
 }
 
 function toCSV(rows: (string | number)[][]) {
-  function toCSV(rows: (string | number)[][]) {
-  function toCSV(rows: (string | number)[][]) {
   return rows
     .map(r => r.map(v => `"${String(v).replaceAll('"', '""')}"`).join(","))
     .join("\n");
 }
-}
-}
+
 
 function clampDay(y: number, m: number, d: number) {
   const last = new Date(y, m + 1, 0).getDate();
