@@ -4,7 +4,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from "recharts";
-
+import { supabase } from './lib/supabaseClient';
 // --- Types ---
 type Txn = {
   id: string;
@@ -96,9 +96,11 @@ function endOfMonthISO(d = new Date()) {
 
 function toCSV(rows: (string | number)[][]) {
   function toCSV(rows: (string | number)[][]) {
+  function toCSV(rows: (string | number)[][]) {
   return rows
     .map(r => r.map(v => `"${String(v).replaceAll('"', '""')}"`).join(","))
     .join("\n");
+}
 }
 }
 
@@ -142,7 +144,30 @@ export default function App() {
 
   const [filterMonth, setFilterMonth] = useState(() => monthKeyFromDate(new Date()));
   const [editing, setEditing] = useState<Txn | null>(null);
+  // Try loading transactions from Supabase (if env vars + policies allow)
+useEffect(() => {
+  (async () => {
+    try {
+      if (!supabase) return;
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('id, amount, category, txn_date, note')
+        .order('txn_date', { ascending: false });
 
+      if (!error && data) {
+        setTxns(data.map(d => ({
+          id: d.id as string,
+          amount: Number(d.amount),
+          category: d.category as string,
+          date: d.txn_date as string,
+          note: (d as any).note || ''
+        })));
+      }
+    } catch (e) {
+      console.warn('Supabase load skipped:', e);
+    }
+  })();
+}, []);
   useEffect(() => { localStorage.setItem(LS_TXNS, JSON.stringify(txns)); }, [txns]);
   useEffect(() => { localStorage.setItem(LS_BUDGETS, JSON.stringify(budgets)); }, [budgets]);
   useEffect(() => { localStorage.setItem(LS_LOANS, JSON.stringify(loans)); }, [loans]);
@@ -179,36 +204,51 @@ export default function App() {
     return Object.entries(days).map(([date, amount]) => ({ date: date.slice(5), amount }));
   }, [monthTxns, monthRange]);
 
-  function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
-    const clean: Txn = {
-      id: input.id ?? uid(),
-      amount: Math.abs(Number(input.amount)) || 0,
-      category: input.category || "Other",
-      date: input.date || new Date().toISOString().slice(0, 10),
-      note: input.note?.trim() || "",
-    };
-    setTxns(prev => {
-      const idx = prev.findIndex(p => p.id === clean.id);
-      if (idx >= 0) { const copy = [...prev]; copy[idx] = clean; return copy; }
-      return [clean, ...prev].sort((a, b) => (a.date < b.date ? 1 : -1));
-    });
-    setEditing(null);
-  }
+  async function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
+  const clean: Txn = {
+    id: input.id ?? uid(),
+    amount: Math.abs(Number(input.amount)) || 0,
+    category: input.category || "Other",
+    date: input.date || new Date().toISOString().slice(0, 10),
+    note: input.note?.trim() || "",
+  };
 
-  function removeTxn(id: string) { setTxns(prev => prev.filter(t => t.id !== id)); }
+  // Optimistic UI
+  setTxns(prev => {
+    const idx = prev.findIndex(p => p.id === clean.id);
+    if (idx >= 0) { const copy = [...prev]; copy[idx] = clean; return copy; }
+    return [clean, ...prev].sort((a, b) => (a.date < b.date ? 1 : -1));
+  });
+  setEditing(null);
 
-  function exportCSV() {
-    const header = ["id", "date", "category", "amount", "note"];
-    const rows = txns.map(t => [t.id, t.date, t.category, t.amount, t.note || ""]);
-    const csv = toCSV([header, ...rows]);
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `spending_${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(a);
-    a.click(); a.remove(); URL.revokeObjectURL(url);
+  // Persist to Supabase if configured
+  try {
+    if (supabase) {
+      await supabase.from('transactions').upsert({
+        id: clean.id,
+        // TEMP until Auth: use a placeholder user_id or your own UUID
+        user_id: '00000000-0000-0000-0000-000000000000',
+        amount: clean.amount,
+        category: clean.category,
+        txn_date: clean.date,
+        note: clean.note
+      });
+    }
+  } catch (e) {
+    console.warn('Supabase upsert skipped:', e);
   }
+}
+
+async function removeTxn(id: string) {
+  setTxns(prev => prev.filter(t => t.id !== id)); // optimistic
+  try {
+    if (supabase) {
+      await supabase.from('transactions').delete().eq('id', id);
+    }
+  } catch (e) {
+    console.warn('Supabase delete skipped:', e);
+  }
+}
 
   function resetAll() {
     if (!confirm("This will clear all data (transactions + budgets + loans + cards). Continue?")) return;
