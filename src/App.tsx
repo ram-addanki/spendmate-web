@@ -95,10 +95,10 @@ function endOfMonthISO(d = new Date()) {
 }
 
 function toCSV(rows: (string | number)[][]) {
-  return rows
+    return rows
     .map(r => r.map(v => `"${String(v).replaceAll('"', '""')}"`).join(","))
-    .join("
-");
+    .join("\n");
+
 }
 
 function clampDay(y: number, m: number, d: number) {
@@ -558,7 +558,7 @@ function LoanCard({ loan, currency, onPay, onDelete, onEdit }:{
           <div className="text-xs text-slate-400">Balance: {formatCurrency(loan.balance, currency)} • APR {loan.apr || 0}%</div>
           {loan.principal > 0 && <div className="text-xs text-slate-500">Original: {formatCurrency(loan.principal, currency)}</div>}
           {monthlyInterest>0 && <div className="text-xs text-slate-400">Est. monthly interest: ~{formatCurrency(monthlyInterest, currency)}</div>}
-          <div className="text-xs mt-1 flex items-center gap-1 {dueSoon? 'text-amber-300' : 'text-slate-400'}">
+          <div className={`text-xs mt-1 flex items-center gap-1 ${dueSoon ? 'text-amber-300' : 'text-slate-400'}`}>
             <AlertCircle className="w-3 h-3"/> Next due: {nd.toISOString().slice(0,10)} ({daysLeft} days)
           </div>
         </div>
@@ -633,7 +633,7 @@ function CardBox({ card, currency, onPay, onDelete, onEdit }:{
           <div className="font-semibold flex items-center gap-2"><CreditCard className="w-4 h-4"/>{card.name}</div>
           <div className="text-xs text-slate-400">Balance: {formatCurrency(card.balance, currency)} • Limit {formatCurrency(card.limit, currency)} • Util {util}%</div>
           <div className="text-xs text-slate-400">APR {card.apr || 0}% • Min due ~{formatCurrency(minDue, currency)}</div>
-          <div className="text-xs mt-1 flex items-center gap-1 {dueSoon? 'text-amber-300' : 'text-slate-400'}">
+          <div className={`text-xs mt-1 flex items-center gap-1 ${dueSoon ? 'text-amber-300' : 'text-slate-400'}`}>
             <AlertCircle className="w-3 h-3"/> Next due: {due.toISOString().slice(0,10)} ({daysLeft} days)
           </div>
           {riskyUtil && <div className="text-xs text-rose-300 mt-1">High utilization: consider extra payment</div>}
