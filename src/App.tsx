@@ -5,7 +5,6 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from "recharts";
-import { useState, useEffect } from "react";
 import { supabase } from "./lib/supabaseClient";  // make sure this path matches your setup
 // --- Types ---
 type Txn = {
@@ -121,15 +120,6 @@ function nextDueDate(day: number, fromDate = new Date()) {
   return new Date(ny, nm, clampDay(ny, nm, day));
 }
 
-function clearAllData() {
-  setTxns([]);
-  setLoans([]);
-  setCards([]);
-  // optional: also clear localStorage so it doesn't come back on refresh
-  localStorage.removeItem(LS_TXNS);
-  localStorage.removeItem(LS_LOANS);
-  localStorage.removeItem(LS_CARDS);
-}
 // --- Main Component ---
 export default function App() {
   const [currency, setCurrency] = useState("USD");
@@ -155,7 +145,7 @@ useEffect(() => {
   return () => { sub.data.subscription.unsubscribe(); };
 }, []);
 
-
+  const safeTxns = user ? txns : [];
   // Transactions & Budgets
   const [txns, setTxns] = useState<Txn[]>(() => {
     try { const raw = localStorage.getItem(LS_TXNS); return raw ? JSON.parse(raw) : []; } catch { return []; }
@@ -171,7 +161,15 @@ useEffect(() => {
   const [cards, setCards] = useState<CreditCardAccount[]>(() => {
     try { const raw = localStorage.getItem(LS_CARDS); return raw ? JSON.parse(raw) : []; } catch { return []; }
   });
-
+  function clearAllData() {
+  setTxns([]);
+  setLoans([]);
+  setCards([]);
+  // optional: also clear localStorage so it doesn't come back on refresh
+  localStorage.removeItem(LS_TXNS);
+  localStorage.removeItem(LS_LOANS);
+  localStorage.removeItem(LS_CARDS);
+}
   const [filterMonth, setFilterMonth] = useState(() => monthKeyFromDate(new Date()));
   const [editing, setEditing] = useState<Txn | null>(null);
   // Try loading transactions from Supabase (if env vars + policies allow)
@@ -207,9 +205,10 @@ useEffect(() => {
 
   const categories = useMemo(() => {
     const fromBudgets = budgets.map(b => b.category);
-    const fromTxns = Array.from(new Set(txns.map(t => t.category)));
+    const fromTxns = Array.from(new Set(safeTxns.map(t => t.category)));
     return Array.from(new Set([...DEFAULT_CATEGORIES, ...fromBudgets, ...fromTxns]));
-  }, [budgets, txns]);
+  }, [budgets, safeTxns]);
+
 
   const monthRange = useMemo(() => {
     const [y, m] = filterMonth.split("-").map(Number);
@@ -218,7 +217,10 @@ useEffect(() => {
     return { startISO: start.toISOString().slice(0, 10), endISO: end.toISOString().slice(0, 10) };
   }, [filterMonth]);
 
-  const monthTxns = useMemo(() => txns.filter(t => t.date >= monthRange.startISO && t.date <= monthRange.endISO), [txns, monthRange]);
+  const monthTxns = useMemo(
+  () => safeTxns.filter(t => t.date >= monthRange.startISO && t.date <= monthRange.endISO),
+  [safeTxns, monthRange]);
+
   const totalMonthSpend = useMemo(() => monthTxns.reduce((sum, t) => sum + Math.max(0, t.amount), 0), [monthTxns]);
 
   const byCategory = useMemo(() => {
@@ -283,7 +285,7 @@ async function removeTxn(id: string) {
 }
 function exportCSV() {
   const header = ["id", "date", "category", "amount", "note"];
-  const rows = txns.map(t => [t.id, t.date, t.category, t.amount, t.note || ""]);
+  const rows = safeTxns.map(t => [t.id, t.date, t.category, t.amount, t.note || ""]);
   const csv = toCSV([header, ...rows]);
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -392,10 +394,11 @@ function exportCSV() {
             <TxnForm
               categories={categories}
               initial={editing || undefined}
-              onSubmit={(t) => upsertTxn(t)}
+              onSubmit={(t) => user ? upsertTxn(t) : alert("Please sign in to add transactions.")}
               onCancel={() => setEditing(null)}
               currency={currency}
             />
+
           </div>
         </section>
 
