@@ -40,8 +40,8 @@ export default function AuthPanel() {
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + "/#recovery",
-    });
+     redirectTo: `${window.location.origin}/?recovery=1`,
+   });
     if (error) alert(error.message);
     else alert("Password reset email sent! Check your inbox.");
   }

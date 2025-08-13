@@ -157,6 +157,23 @@ useEffect(() => {
 
   return () => { sub.data.subscription.unsubscribe(); };
 }, []);
+// show the modal if we arrived from the email link
+useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  const hasQueryRecovery = url.searchParams.get("recovery") === "1";
+  const hasHashRecovery = window.location.hash.includes("recovery");
+
+  if (hasQueryRecovery || hasHashRecovery) {
+    setShowReset(true);
+    // Clean ?recovery=1 from the URL but keep any auth hash fragments alone
+    if (hasQueryRecovery) {
+      url.searchParams.delete("recovery");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }
+}, []);
 
   // Transactions & Budgets
   const [txns, setTxns] = useState<Txn[]>(() => {
