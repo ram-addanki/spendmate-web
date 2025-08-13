@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { supabase } from "../lib/supabaseClient";
 
-function ResetPasswordModal({ onClose }: { onClose: () => void }) {
+type Props = { onClose: () => void };
+
+function ResetPasswordModal({ onClose }: Props) {
   const [p1, setP1] = useState("");
   const [p2, setP2] = useState("");
   const [loading, setLoading] = useState(false);
@@ -9,9 +12,11 @@ function ResetPasswordModal({ onClose }: { onClose: () => void }) {
     e.preventDefault();
     if (p1.length < 8) return alert("Password must be at least 8 characters.");
     if (p1 !== p2) return alert("Passwords do not match.");
+
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password: p1 });
     setLoading(false);
+
     if (error) return alert(error.message);
     alert("Password updated! You're signed in now.");
     window.location.hash = ""; // clean up URL
@@ -20,7 +25,10 @@ function ResetPasswordModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <form onSubmit={submit} className="bg-slate-900 border border-slate-700 rounded-2xl p-4 w-[90%] max-w-sm">
+      <form
+        onSubmit={submit}
+        className="bg-slate-900 border border-slate-700 rounded-2xl p-4 w-[90%] max-w-sm"
+      >
         <h3 className="text-lg font-semibold mb-3">Set a new password</h3>
         <div className="space-y-2">
           <input
@@ -58,3 +66,5 @@ function ResetPasswordModal({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
+
+export default ResetPasswordModal;
