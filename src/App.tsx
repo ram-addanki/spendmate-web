@@ -239,50 +239,94 @@ useEffect(() => {
   }, [monthTxns, monthRange]);
 
 async function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
-  const clean: Txn = {
-    id: input.id ?? uid(),
+  // Build a clean payload for the DB
+  const payload: any = {
+    user_id: user?.id,                       // required for RLS
     amount: Math.abs(Number(input.amount)) || 0,
     category: input.category || "Other",
-    date: input.date || new Date().toISOString().slice(0, 10),
+    txn_date: input.date || new Date().toISOString().slice(0,10),
     note: input.note?.trim() || "",
   };
 
-  // Optimistic UI
+  // Only send id if it's an edit and you already have a valid UUID from the DB
+  if (input.id) payload.id = input.id;
+
+  // Optimistic UI (insert/update locally so the UI feels instant)
   setTxns(prev => {
+    const idForUI = input.id ?? "(pending)";
+    const clean: Txn = {
+      id: idForUI,
+      amount: payload.amount,
+      category: payload.category,
+      date: payload.txn_date,
+      note: payload.note,
+    };
     const idx = prev.findIndex(p => p.id === clean.id);
     if (idx >= 0) { const copy = [...prev]; copy[idx] = clean; return copy; }
     return [clean, ...prev].sort((a, b) => (a.date < b.date ? 1 : -1));
   });
   setEditing(null);
 
-  // Persist to Supabase (requires user)
+  // Persist to Supabase – require auth and show any errors
   try {
-    if (supabase && user) {
-      await supabase.from('transactions').upsert({
-        id: clean.id,
-        user_id: user.id,
-        amount: clean.amount,
-        category: clean.category,
-        txn_date: clean.date,
-        note: clean.note
-      });
+    if (!supabase || !user) return;
+
+    // Let the DB assign id for new rows. Ask it to return the row.
+    const { data, error } = await supabase
+      .from("transactions")
+      .upsert(payload)         // payload has no id for new inserts
+      .select("*")             // get the real row back
+      .single();
+
+    if (error) {
+      console.error("Upsert error:", error);
+      alert(`Save failed: ${error.message}`);
+      // Optional: revert the optimistic row here if you want
+      return;
     }
+
+    // Reconcile optimistic row with the authoritative row from DB
+    setTxns(prev => {
+      const idx = prev.findIndex(p => p.id === (input.id ?? "(pending)"));
+      const cleanFromDB: Txn = {
+        id: data.id as string,
+        amount: Number(data.amount),
+        category: String(data.category),
+        date: String(data.txn_date),
+        note: (data as any).note || "",
+      };
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = cleanFromDB;
+        return copy;
+      }
+      return [cleanFromDB, ...prev];
+    });
   } catch (e) {
-    console.warn('Supabase upsert skipped:', e);
+    console.error("Supabase upsert exception:", e);
+    alert("Save failed (network/client error). Check console.");
   }
 }
-
 
 async function removeTxn(id: string) {
-  setTxns(prev => prev.filter(t => t.id !== id)); // optimistic
+  setTxns(prev => prev.filter(t => t.id !== id));
   try {
-    if (supabase && user) {
-      await supabase.from('transactions').delete().eq('id', id).eq('user_id', user.id);
+    if (!supabase || !user) return;
+    const { error } = await supabase
+      .from("transactions")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
+    if (error) {
+      console.error("Delete error:", error);
+      alert(`Delete failed: ${error.message}`);
     }
   } catch (e) {
-    console.warn('Supabase delete skipped:', e);
+    console.error("Delete exception:", e);
+    alert("Delete failed (network/client error).");
   }
 }
+
 function exportCSV() {
   const header = ["id", "date", "category", "amount", "note"];
   const rows = safeTxns.map(t => [t.id, t.date, t.category, t.amount, t.note || ""]);
