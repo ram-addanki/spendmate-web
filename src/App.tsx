@@ -121,6 +121,15 @@ function nextDueDate(day: number, fromDate = new Date()) {
   return new Date(ny, nm, clampDay(ny, nm, day));
 }
 
+function clearAllData() {
+  setTxns([]);
+  setLoans([]);
+  setCards([]);
+  // optional: also clear localStorage so it doesn't come back on refresh
+  localStorage.removeItem(LS_TXNS);
+  localStorage.removeItem(LS_LOANS);
+  localStorage.removeItem(LS_CARDS);
+}
 // --- Main Component ---
 export default function App() {
   const [currency, setCurrency] = useState("USD");
@@ -132,14 +141,20 @@ useEffect(() => {
     if (!supabase) return;
     const { data: { user } } = await supabase.auth.getUser();
     setUser(user ?? null);
+    if (!user) clearAllData();
   })();
 
-  const sub = supabase?.auth.onAuthStateChange((_event, session) => {
-    setUser(session?.user ?? null);
+  const sub = supabase.auth.onAuthStateChange((event, session) => {
+    const nextUser = session?.user ?? null;
+    setUser(nextUser);
+    if (event === "SIGNED_OUT" || !nextUser) {
+      clearAllData();
+    }
   });
 
-  return () => { sub?.data.subscription.unsubscribe(); };
+  return () => { sub.data.subscription.unsubscribe(); };
 }, []);
+
 
   // Transactions & Budgets
   const [txns, setTxns] = useState<Txn[]>(() => {
@@ -339,12 +354,21 @@ function exportCSV() {
               <AuthPanel />
             </div>
             ) : (
-             <button
-              onClick={async () => { await supabase.auth.signOut(); }}
+            <button
+              onClick={async () => { 
+                await supabase.auth.signOut();
+                clearAllData(); // belt & suspenders
+              }}
               className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 rounded-xl px-3 py-2"
             >
-              Sign out ({user.email})
+              Sign out ({user?.email})
             </button>
+
+            )}
+            {!user && (
+              <div className="mt-4 text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+                You’re signed out. Sign in to see your transactions.
+              </div>
             )}
           </div>
         </header>
