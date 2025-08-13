@@ -145,7 +145,6 @@ useEffect(() => {
   return () => { sub.data.subscription.unsubscribe(); };
 }, []);
 
-  const safeTxns = user ? txns : [];
   // Transactions & Budgets
   const [txns, setTxns] = useState<Txn[]>(() => {
     try { const raw = localStorage.getItem(LS_TXNS); return raw ? JSON.parse(raw) : []; } catch { return []; }
@@ -161,6 +160,7 @@ useEffect(() => {
   const [cards, setCards] = useState<CreditCardAccount[]>(() => {
     try { const raw = localStorage.getItem(LS_CARDS); return raw ? JSON.parse(raw) : []; } catch { return []; }
   });
+  const safeTxns = user ? txns : [];
   function clearAllData() {
   setTxns([]);
   setLoans([]);
