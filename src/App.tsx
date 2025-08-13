@@ -1,5 +1,6 @@
 import AuthPanel from "./components/AuthPanel";
 import React, { useEffect, useMemo, useState } from "react";
+import ResetPasswordModal from "./components/ResetPasswordModal";
 import { PlusCircle, Trash2, Pencil, Download, Wallet, CalendarDays, BarChart3, PieChart as PieIcon, DollarSign, RefreshCcw, CreditCard, Landmark, AlertCircle } from "lucide-react";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
@@ -125,6 +126,18 @@ export default function App() {
   const [currency, setCurrency] = useState("USD");
 // 1. User state & auth listener
 const [user, setUser] = useState<import('@supabase/supabase-js').User | null>(null);
+const [showReset, setShowReset] = useState(false);
+useEffect(() => {
+  if (typeof window !== "undefined" && window.location.hash.includes("recovery")) {
+    setShowReset(true);
+  }
+}, []);
+useEffect(() => {
+  const sub = supabase.auth.onAuthStateChange((event) => {
+    if (event === "PASSWORD_RECOVERY") setShowReset(true);
+  });
+  return () => sub.data.subscription.unsubscribe();
+}, []);
 
 useEffect(() => {
   (async () => {
@@ -604,6 +617,7 @@ function exportCSV() {
         <footer className="text-center text-xs text-slate-400 mt-8">
           Data is stored locally in your browser. For cloud sync + mobile app, we can wire this to Azure later.
         </footer>
+        {showReset && <ResetPasswordModal onClose={() => setShowReset(false)} />}
       </div>
     </div>
   );
