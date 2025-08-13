@@ -96,7 +96,7 @@ function endOfMonthISO(d = new Date()) {
 
 function toCSV(rows: (string | number)[][]) {
   return rows
-    .map(r => r.map(v => `"${String(v).replaceAll('"', '""')}"`).join(","))
+    .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
     .join("\n");
 }
 
@@ -246,7 +246,21 @@ async function removeTxn(id: string) {
     console.warn('Supabase delete skipped:', e);
   }
 }
+function exportCSV() {
+  const header = ["id", "date", "category", "amount", "note"];
+  const rows = txns.map(t => [t.id, t.date, t.category, t.amount, t.note || ""]);
+  const csv = toCSV([header, ...rows]);
 
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `spending_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
   function resetAll() {
     if (!confirm("This will clear all data (transactions + budgets + loans + cards). Continue?")) return;
     setTxns([]);
