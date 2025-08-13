@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { supabase } from "../lib/supabaseClient";
- // adjust path if needed
+import { supabase } from "../lib/supabaseClient"; // adjust if your path differs
 
 export default function AuthPanel() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -8,56 +7,56 @@ export default function AuthPanel() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // handle sign in / sign up
+  // Sign in / Sign up
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (busy) return;
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = password;
+
     setBusy(true);
-
     try {
-      let result;
-
       if (mode === "signin") {
-        result = await supabase.auth.signInWithPassword({
-          email,
-          password,
+        const { error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password: cleanPass,
         });
-      } else {
-        result = await supabase.auth.signUp({
-          email,
-          password,
-        });
-      }
+        if (error) throw error;
 
-      if (result.error) {
-        alert(result.error.message);
+        // go to home (your App listens for auth changes anyway)
+        window.location.replace("/");
       } else {
-        // Redirect after successful sign in
-        if (mode === "signin") {
-          window.location.replace("/");
-        } else {
-          alert("Sign up successful! Please check your email to confirm.");
-        }
+        const { error } = await supabase.auth.signUp({
+          email: cleanEmail,
+          password: cleanPass,
+        });
+        if (error) throw error;
+        alert("Sign up successful! Please check your email to confirm.");
+        setMode("signin");
       }
     } catch (err: any) {
-      alert(err.message);
+      alert(err?.message || "Authentication failed.");
     } finally {
       setBusy(false);
     }
   };
 
-  // forgot password
+  // Forgot password
   const sendReset = async () => {
-    if (!email) {
-      alert("Please enter your email first.");
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) {
+      alert("Enter your email first");
       return;
     }
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/#recovery`,
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      // Supabase will append the recovery tokens in the hash automatically
+      redirectTo: window.location.origin,
     });
     if (error) {
       alert(error.message);
     } else {
-      alert("Password reset email sent! Please check your inbox.");
+      alert("Password reset email sent! Check your inbox.");
     }
   };
 
@@ -104,13 +103,9 @@ export default function AuthPanel() {
 
       <button
         disabled={busy}
-        className="bg-emerald-600 hover:bg-emerald-500 rounded-xl px-3 py-2"
+        className="bg-emerald-600 hover:bg-emerald-500 rounded-xl px-3 py-2 disabled:opacity-60"
       >
-        {busy
-          ? "Please wait…"
-          : mode === "signup"
-          ? "Create account"
-          : "Sign in"}
+        {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
       </button>
 
       <button

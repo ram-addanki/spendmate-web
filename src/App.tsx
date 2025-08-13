@@ -128,10 +128,18 @@ export default function App() {
 const [user, setUser] = useState<import('@supabase/supabase-js').User | null>(null);
 const [showReset, setShowReset] = useState(false);
 useEffect(() => {
-  if (typeof window !== "undefined" && window.location.hash.includes("recovery")) {
-    setShowReset(true);
+  const hash = window.location.hash;
+  const params = Object.fromEntries(new URLSearchParams(hash.substring(1)));
+  if (params.access_token && params.refresh_token) {
+    supabase.auth.setSession({
+      access_token: params.access_token,
+      refresh_token: params.refresh_token,
+    }).then(() => {
+      setShowReset(true);
+    });
   }
 }, []);
+
 useEffect(() => {
   const sub = supabase.auth.onAuthStateChange((event) => {
     if (event === "PASSWORD_RECOVERY") setShowReset(true);
