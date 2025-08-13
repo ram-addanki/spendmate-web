@@ -1,3 +1,4 @@
+import AuthPanel from "./components/AuthPanel";
 import React, { useEffect, useMemo, useState } from "react";
 import { PlusCircle, Trash2, Pencil, Download, Wallet, CalendarDays, BarChart3, PieChart as PieIcon, DollarSign, RefreshCcw, CreditCard, Landmark, AlertCircle } from "lucide-react";
 import {
@@ -332,12 +333,19 @@ function exportCSV() {
             <button onClick={resetAll} className="inline-flex items-center gap-2 bg-red-900/30 hover:bg-red-900/50 border border-red-800 rounded-xl px-3 py-2">
               <RefreshCcw className="w-4 h-4"/> Reset
             </button>
-            <button onClick={async () => {
-                 await supabase.auth.signOut();
-            }}>
-            Sign out
+            {!user ? (
+  // show the email/password panel when logged out
+            <div className="w-full md:w-auto">
+              <AuthPanel />
+            </div>
+            ) : (
+             <button
+              onClick={async () => { await supabase.auth.signOut(); }}
+              className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 rounded-xl px-3 py-2"
+            >
+              Sign out ({user.email})
             </button>
-
+            )}
           </div>
         </header>
 
