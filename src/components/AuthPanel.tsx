@@ -1,46 +1,70 @@
-import React, { useEffect, useState } from "react";
-import { supabase } from "../lib/supabaseClient";
+import React, { useState } from "react";
+import { supabase } from "../supabaseClient"; // adjust path if needed
 
 export default function AuthPanel() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  
-  async function handleSubmit(e: React.FormEvent) {
+
+  // handle sign in / sign up
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
+
     try {
-      if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        alert("Check your email to confirm your account.");
+      let result;
+
+      if (mode === "signin") {
+        result = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        // on success, App's auth listener will set user state
+        result = await supabase.auth.signUp({
+          email,
+          password,
+        });
+      }
+
+      if (result.error) {
+        alert(result.error.message);
+      } else {
+        // Redirect after successful sign in
+        if (mode === "signin") {
+          window.location.replace("/");
+        } else {
+          alert("Sign up successful! Please check your email to confirm.");
+        }
       }
     } catch (err: any) {
-      alert(err.message || "Auth error");
+      alert(err.message);
     } finally {
       setBusy(false);
     }
-  }
+  };
 
-  async function sendReset() {
+  // forgot password
+  const sendReset = async () => {
     if (!email) {
-      alert("Enter your email first");
+      alert("Please enter your email first.");
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-     redirectTo: `${window.location.origin}/?recovery=1`,
-   });
-    if (error) alert(error.message);
-    else alert("Password reset email sent! Check your inbox.");
-  }
+      redirectTo: `${window.location.origin}/#recovery`,
+    });
+    if (error) {
+      alert(error.message);
+    } else {
+      alert("Password reset email sent! Please check your inbox.");
+    }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="grid gap-2 bg-slate-900 border border-slate-800 rounded-2xl p-4">
+    <form
+      onSubmit={handleSubmit}
+      className="grid gap-2 bg-slate-900 border border-slate-800 rounded-2xl p-4"
+    >
       <div className="flex gap-2 text-sm">
         <button
           type="button"
@@ -81,7 +105,11 @@ export default function AuthPanel() {
         disabled={busy}
         className="bg-emerald-600 hover:bg-emerald-500 rounded-xl px-3 py-2"
       >
-        {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
+        {busy
+          ? "Please wait…"
+          : mode === "signup"
+          ? "Create account"
+          : "Sign in"}
       </button>
 
       <button
@@ -92,7 +120,5 @@ export default function AuthPanel() {
         Forgot password?
       </button>
     </form>
-    
   );
-
 }
