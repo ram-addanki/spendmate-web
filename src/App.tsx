@@ -4,7 +4,8 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   AreaChart, Area, XAxis, YAxis, CartesianGrid
 } from "recharts";
-import { supabase } from './lib/supabaseClient';
+import { useState, useEffect } from "react";
+import { supabase } from "./lib/supabaseClient";  // make sure this path matches your setup
 // --- Types ---
 type Txn = {
   id: string;
@@ -122,6 +123,22 @@ function nextDueDate(day: number, fromDate = new Date()) {
 // --- Main Component ---
 export default function App() {
   const [currency, setCurrency] = useState("USD");
+// 1. User state & auth listener
+const [user, setUser] = useState<import('@supabase/supabase-js').User | null>(null);
+
+useEffect(() => {
+  (async () => {
+    if (!supabase) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user ?? null);
+  })();
+
+  const sub = supabase?.auth.onAuthStateChange((_event, session) => {
+    setUser(session?.user ?? null);
+  });
+
+  return () => { sub?.data.subscription.unsubscribe(); };
+}, []);
 
   // Transactions & Budgets
   const [txns, setTxns] = useState<Txn[]>(() => {
@@ -142,15 +159,16 @@ export default function App() {
   const [filterMonth, setFilterMonth] = useState(() => monthKeyFromDate(new Date()));
   const [editing, setEditing] = useState<Txn | null>(null);
   // Try loading transactions from Supabase (if env vars + policies allow)
+// 2. Load only signed-in user’s transactions
 useEffect(() => {
   (async () => {
     try {
-      if (!supabase) return;
+      if (!supabase || !user) return;
       const { data, error } = await supabase
         .from('transactions')
         .select('id, amount, category, txn_date, note')
+        .eq('user_id', user.id)
         .order('txn_date', { ascending: false });
-
       if (!error && data) {
         setTxns(data.map(d => ({
           id: d.id as string,
@@ -164,7 +182,8 @@ useEffect(() => {
       console.warn('Supabase load skipped:', e);
     }
   })();
-}, []);
+}, [user]);
+
   useEffect(() => { localStorage.setItem(LS_TXNS, JSON.stringify(txns)); }, [txns]);
   useEffect(() => { localStorage.setItem(LS_BUDGETS, JSON.stringify(budgets)); }, [budgets]);
   useEffect(() => { localStorage.setItem(LS_LOANS, JSON.stringify(loans)); }, [loans]);
@@ -201,7 +220,7 @@ useEffect(() => {
     return Object.entries(days).map(([date, amount]) => ({ date: date.slice(5), amount }));
   }, [monthTxns, monthRange]);
 
-  async function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
+async function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
   const clean: Txn = {
     id: input.id ?? uid(),
     amount: Math.abs(Number(input.amount)) || 0,
@@ -218,13 +237,12 @@ useEffect(() => {
   });
   setEditing(null);
 
-  // Persist to Supabase if configured
+  // Persist to Supabase (requires user)
   try {
-    if (supabase) {
+    if (supabase && user) {
       await supabase.from('transactions').upsert({
         id: clean.id,
-        // TEMP until Auth: use a placeholder user_id or your own UUID
-        user_id: '00000000-0000-0000-0000-000000000000',
+        user_id: user.id,
         amount: clean.amount,
         category: clean.category,
         txn_date: clean.date,
@@ -236,11 +254,12 @@ useEffect(() => {
   }
 }
 
+
 async function removeTxn(id: string) {
   setTxns(prev => prev.filter(t => t.id !== id)); // optimistic
   try {
-    if (supabase) {
-      await supabase.from('transactions').delete().eq('id', id);
+    if (supabase && user) {
+      await supabase.from('transactions').delete().eq('id', id).eq('user_id', user.id);
     }
   } catch (e) {
     console.warn('Supabase delete skipped:', e);
@@ -313,6 +332,12 @@ function exportCSV() {
             <button onClick={resetAll} className="inline-flex items-center gap-2 bg-red-900/30 hover:bg-red-900/50 border border-red-800 rounded-xl px-3 py-2">
               <RefreshCcw className="w-4 h-4"/> Reset
             </button>
+            <button onClick={async () => {
+                 await supabase.auth.signOut();
+            }}>
+            Sign out
+            </button>
+
           </div>
         </header>
 
