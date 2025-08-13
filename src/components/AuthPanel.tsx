@@ -6,14 +6,7 @@ export default function AuthPanel() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showReset, setShowReset] = useState(false);
-
-  useEffect(() => {
-    if (window.location.hash.includes("recovery")) {
-      setShowReset(true);
-    }
-  }, []);
-
+  
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -98,7 +91,6 @@ export default function AuthPanel() {
       >
         Forgot password?
       </button>
-      {showReset && <ResetPasswordModal onClose={() => setShowReset(false)} />}
     </form>
     
   );
