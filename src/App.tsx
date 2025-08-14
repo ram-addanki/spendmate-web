@@ -10,11 +10,13 @@ import { supabase } from "./lib/supabaseClient";  // make sure this path matches
 // --- Types ---
 type Txn = {
   id: string;
-  amount: number; // positive = spend; (you can add income later)
+  amount: number;
   category: string;
-  date: string; // yyyy-mm-dd
+  date: string;
   note?: string;
+  type?: "expense" | "income" | "transfer"; // optional while you migrate
 };
+
 
 type Budget = {
   category: string;
@@ -218,16 +220,19 @@ useEffect(() => {
       if (!supabase || !user) return;
       const { data, error } = await supabase
         .from('transactions')
-        .select('id, amount, category, txn_date, note')
+        .select('id, amount, category, txn_date, note, type, account_id')
         .eq('user_id', user.id)
         .order('txn_date', { ascending: false });
+
       if (!error && data) {
         setTxns(data.map(d => ({
           id: d.id as string,
           amount: Number(d.amount),
           category: d.category as string,
           date: d.txn_date as string,
-          note: (d as any).note || ''
+          note: (d as any).note || '',
+          type: (d as any).type || "expense",
+          account_id: (d as any).account_id ?? null,
         })));
       }
     } catch (e) {
@@ -259,37 +264,82 @@ useEffect(() => {
   () => safeTxns.filter(t => t.date >= monthRange.startISO && t.date <= monthRange.endISO),
   [safeTxns, monthRange]);
 
-  const totalMonthSpend = useMemo(() => monthTxns.reduce((sum, t) => sum + Math.max(0, t.amount), 0), [monthTxns]);
+  const balance = useMemo(() =>
+  safeTxns.reduce((acc, t) => acc + (t.type === "expense" ? -t.amount : t.amount), 0),
+  [safeTxns]);
+  return (
+  <div className="grid gap-4">
+    {/* Balance Widget */}
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <DollarSign className="w-5 h-5" />
+        <h3 className="font-medium">Balance</h3>
+      </div>
+      <div className="text-2xl font-semibold">{formatCurrency(balance, currency)}</div>
+      <div className="text-xs text-slate-400">Income − Expenses (all time)</div>
+    </div>
+
+    {/* Existing charts / transaction list */}
+    <TransactionsList transactions={safeTxns} />
+  </div>
+);
+
+
+  const totalMonthSpend = useMemo(() =>
+  monthTxns.reduce((sum, t) => sum + (t.type === "expense" ? t.amount : 0), 0),
+  [monthTxns]);
+
 
   const byCategory = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const t of monthTxns) m.set(t.category, (m.get(t.category) || 0) + t.amount);
-    return Array.from(m.entries()).map(([category, amount]) => ({ category, amount }));
-  }, [monthTxns]);
+  const m = new Map<string, number>();
+  for (const t of monthTxns) {
+    if (t.type === "expense") {
+      m.set(t.category, (m.get(t.category) || 0) + t.amount);
+    }
+  }
+  return Array.from(m.entries()).map(([category, amount]) => ({ category, amount }));
+}, [monthTxns]);
 
   const dailySeries = useMemo(() => {
-    const days: Record<string, number> = {};
-    let d = new Date(monthRange.startISO);
-    const end = new Date(monthRange.endISO);
-    while (d <= end) { const key = d.toISOString().slice(0, 10); days[key] = 0; d.setDate(d.getDate() + 1); }
-    for (const t of monthTxns) days[t.date] = (days[t.date] || 0) + t.amount;
-    return Object.entries(days).map(([date, amount]) => ({ date: date.slice(5), amount }));
-  }, [monthTxns, monthRange]);
+  const days: Record<string, number> = {};
+  let d = new Date(monthRange.startISO);
+  const end = new Date(monthRange.endISO);
+
+  // pre-fill month with zeros
+  while (d <= end) {
+    const key = d.toISOString().slice(0, 10);
+    days[key] = 0;
+    d.setDate(d.getDate() + 1);
+  }
+
+  // add only expenses (default unknown type to "expense" just in case)
+  for (const t of monthTxns) {
+    const tType = (t as any).type ?? "expense";
+    if (tType === "expense") {
+      days[t.date] = (days[t.date] || 0) + t.amount;
+    }
+  }
+
+  return Object.entries(days).map(([date, amount]) => ({
+    date: date.slice(5), // MM-DD
+    amount,
+  }));
+}, [monthTxns, monthRange]);
+
 
 async function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
-  // Build a clean payload for the DB
   const payload: any = {
-    user_id: user?.id,                       // required for RLS
+    user_id: user?.id,
     amount: Math.abs(Number(input.amount)) || 0,
     category: input.category || "Other",
     txn_date: input.date || new Date().toISOString().slice(0,10),
     note: input.note?.trim() || "",
+    type: input.type || "expense",                // <-- NEW
+    account_id: input.account_id ?? null,         // <-- optional
   };
-
-  // Only send id if it's an edit and you already have a valid UUID from the DB
   if (input.id) payload.id = input.id;
 
-  // Optimistic UI (insert/update locally so the UI feels instant)
+  // optimistic UI (keep as you had it, but include type/account_id)
   setTxns(prev => {
     const idForUI = input.id ?? "(pending)";
     const clean: Txn = {
@@ -298,6 +348,8 @@ async function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
       category: payload.category,
       date: payload.txn_date,
       note: payload.note,
+      type: payload.type,
+      account_id: payload.account_id,
     };
     const idx = prev.findIndex(p => p.id === clean.id);
     if (idx >= 0) { const copy = [...prev]; copy[idx] = clean; return copy; }
@@ -305,25 +357,20 @@ async function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
   });
   setEditing(null);
 
-  // Persist to Supabase – require auth and show any errors
   try {
     if (!supabase || !user) return;
-
-    // Let the DB assign id for new rows. Ask it to return the row.
     const { data, error } = await supabase
       .from("transactions")
-      .upsert(payload)         // payload has no id for new inserts
-      .select("*")             // get the real row back
+      .upsert(payload)
+      .select("*")
       .single();
 
     if (error) {
       console.error("Upsert error:", error);
       alert(`Save failed: ${error.message}`);
-      // Optional: revert the optimistic row here if you want
       return;
     }
 
-    // Reconcile optimistic row with the authoritative row from DB
     setTxns(prev => {
       const idx = prev.findIndex(p => p.id === (input.id ?? "(pending)"));
       const cleanFromDB: Txn = {
@@ -332,6 +379,8 @@ async function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
         category: String(data.category),
         date: String(data.txn_date),
         note: (data as any).note || "",
+        type: (data as any).type || "expense",
+        account_id: (data as any).account_id ?? null,
       };
       if (idx >= 0) {
         const copy = [...prev];
@@ -660,21 +709,32 @@ function TxnForm({ categories, onSubmit, onCancel, initial, currency }:{
   const [category, setCategory] = useState(initial?.category || categories[0] || "Other");
   const [amount, setAmount] = useState(initial?.amount?.toString() || "");
   const [note, setNote] = useState(initial?.note || "");
+  const [type, setType] = useState<"expense"|"income"|"transfer">(initial?.type || "expense");
 
-  useEffect(()=>{
-    if(initial){
-      setDate(initial.date);
-      setCategory(initial.category);
-      setAmount(String(initial.amount));
-      setNote(initial.note || "");
-    }
-  }, [initial?.id]);
+  useEffect(() => {
+  if (initial) {
+    setDate(initial.date);
+    setCategory(initial.category);
+    setAmount(String(initial.amount));
+    setNote(initial.note || "");
+    setType(initial.type || "expense"); // NEW
+  }
+}, [initial?.id]);
+
 
   function submit(e: React.FormEvent){
     e.preventDefault();
     const amt = Number(amount);
     if(!amt || amt <= 0) return alert("Please enter a valid amount.");
-    onSubmit({ id: initial?.id, date, category: category || "Other", amount: Math.abs(amt), note: note.trim() });
+    onSubmit({
+      id: initial?.id,
+      date,
+      category: category || "Other",
+      amount: Math.abs(amt),
+      note: note.trim(),
+      type, // NEW
+    });
+
     if(!initial){ setAmount(""); setNote(""); }
   }
 
@@ -693,6 +753,18 @@ function TxnForm({ categories, onSubmit, onCancel, initial, currency }:{
       <div>
         <label className="text-xs text-slate-400">Amount ({currency})</label>
         <input type="number" min={0} step="0.01" inputMode="decimal" placeholder={`Amount (${currency})`} value={amount} onChange={e=>setAmount(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"/>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400">Type</label>
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value as "expense"|"income"|"transfer")}
+          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2"
+        >
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+          <option value="transfer">Transfer</option>
+        </select>
       </div>
       <div className="md:col-span-2">
         <label className="text-xs text-slate-400">Note (optional)</label>
