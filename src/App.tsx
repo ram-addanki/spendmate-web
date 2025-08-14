@@ -222,7 +222,7 @@ useEffect(() => {
       if (!supabase || !user) return;
       const { data, error } = await supabase
         .from('transactions')
-        .select('id, amount, category, txn_date, note, type, account_id')
+        .select('id, amount, category, txn_date, note, type')
         .eq('user_id', user.id)
         .order('txn_date', { ascending: false });
 
@@ -234,7 +234,6 @@ useEffect(() => {
           date: d.txn_date as string,
           note: (d as any).note || '',
           type: (d as any).type || "expense",
-          account_id: (d as any).account_id ?? null,
         })));
       }
     } catch (e) {
@@ -322,7 +321,6 @@ async function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
     txn_date: input.date || new Date().toISOString().slice(0,10),
     note: input.note?.trim() || "",
     type: input.type || "expense",                // <-- NEW
-    account_id: input.account_id ?? null,         // <-- optional
   };
   if (input.id) payload.id = input.id;
 
@@ -367,7 +365,6 @@ async function upsertTxn(input: Omit<Txn, "id"> & { id?: string }) {
         date: String(data.txn_date),
         note: (data as any).note || "",
         type: (data as any).type || "expense",
-        account_id: (data as any).account_id ?? null,
       };
       if (idx >= 0) {
         const copy = [...prev];
