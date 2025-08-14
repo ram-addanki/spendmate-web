@@ -15,7 +15,9 @@ type Txn = {
   date: string;
   note?: string;
   type?: "expense" | "income" | "transfer"; // optional while you migrate
+  account_id?: string | null;               // <-- add this
 };
+
 
 
 type Budget = {
@@ -267,22 +269,7 @@ useEffect(() => {
   const balance = useMemo(() =>
   safeTxns.reduce((acc, t) => acc + (t.type === "expense" ? -t.amount : t.amount), 0),
   [safeTxns]);
-  return (
-  <div className="grid gap-4">
-    {/* Balance Widget */}
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <DollarSign className="w-5 h-5" />
-        <h3 className="font-medium">Balance</h3>
-      </div>
-      <div className="text-2xl font-semibold">{formatCurrency(balance, currency)}</div>
-      <div className="text-xs text-slate-400">Income − Expenses (all time)</div>
-    </div>
-
-    {/* Existing charts / transaction list */}
-    <TransactionsList transactions={safeTxns} />
-  </div>
-);
+  
 
 
   const totalMonthSpend = useMemo(() =>
@@ -534,12 +521,24 @@ function exportCSV() {
         </section>
 
         {/* Summary Cards */}
-        <section className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <section className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Balance */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="w-5 h-5"/><h3 className="font-medium">Balance</h3>
+            </div>
+            <div className="text-2xl font-semibold">{formatCurrency(balance, currency)}</div>
+            <div className="text-xs text-slate-400">Income − Expenses (all time)</div>
+          </div>
+
+          {/* This Month */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2"><DollarSign className="w-5 h-5"/><h3 className="font-medium">This Month</h3></div>
             <div className="text-2xl font-semibold">{formatCurrency(totalMonthSpend, currency)}</div>
             <div className="text-xs text-slate-400">Total spend in {filterMonth}</div>
           </div>
+
+          {/* Daily Trend */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2"><BarChart3 className="w-5 h-5"/><h3 className="font-medium">Daily Trend</h3></div>
             <div className="h-40">
@@ -560,6 +559,8 @@ function exportCSV() {
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* By Category */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2"><PieIcon className="w-5 h-5"/><h3 className="font-medium">By Category</h3></div>
             <div className="h-40">
@@ -576,6 +577,7 @@ function exportCSV() {
             </div>
           </div>
         </section>
+
 
         {/* NEW: Loans & Credit Cards */}
         <section className="mt-6 grid grid-cols-1 gap-4">
